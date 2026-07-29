@@ -1,0 +1,94 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+
+export async function getStaticPaths() {
+  const crafts = await getCollection("craft");
+  return crafts.map((c) => ({
+    params: { slug: c.slug },
+    props: { entry: c },
+  }));
+}
+
+type Props = {
+  entry: CollectionEntry<"craft">;
+};
+
+const { entry } = Astro.props;
+const { data } = entry;
+---
+
+<BaseLayout title={data.name}>
+  <article>
+    <h1>{data.name}</h1>
+    {data.alternateNames.length > 0 && (
+      <p><em>Also known as: {data.alternateNames.join(", ")}</em></p>
+    )}
+    <p><strong>Technique:</strong> {data.technique}</p>
+    <p><strong>Origin(s):</strong> {data.origins.join(", ")}</p>
+    <p>{data.summary}</p>
+
+    {data.history && (
+      <section>
+        <h2>History</h2>
+        <p>{data.history}</p>
+      </section>
+    )}
+
+    {data.howItsMade && (
+      <section>
+        <h2>How it's made</h2>
+        <p>{data.howItsMade}</p>
+      </section>
+    )}
+
+    {data.motifsAndMaterials && (
+      <section>
+        <h2>Motifs & materials</h2>
+        <p>{data.motifsAndMaterials}</p>
+      </section>
+    )}
+
+    {data.images.length > 0 && (
+      <section>
+        <h2>Images</h2>
+        {data.images.map((img) => (
+          <figure>
+            <img src={img.src} alt={img.alt} />
+            <figcaption>
+              {img.alt}
+              <br />
+              <small>
+                {img.credit.author} &middot; {img.credit.license}
+                &middot; <a href={img.credit.sourceUrl}>Source</a>
+              </small>
+            </figcaption>
+          </figure>
+        ))}
+      </section>
+    )}
+
+    {data.sources.length > 0 && (
+      <section>
+        <h2>Sources</h2>
+        <ol>
+          {data.sources.map((s) => (
+            <li>
+              {s.author}, <a href={s.url}>{s.title}</a>
+              {s.year ? ` (${s.year})` : ""}
+              {s.accessed ? `, accessed ${s.accessed}` : ""}
+            </li>
+          ))}
+        </ol>
+      </section>
+    )}
+  </article>
+
+  <hr />
+  <p>
+    <a href="https://github.com/zer0sand1/textile-of-india/issues/new?template=correction.yml&craft={data.name}">
+      Suggest an edit
+    </a>
+  </p>
+</BaseLayout>
