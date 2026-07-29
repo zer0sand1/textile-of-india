@@ -13,7 +13,7 @@ The broad making-category a Craft belongs to. Working set: weave, embroidery, bl
 _Avoid_: textile (everything on the site is a textile — it names nothing)
 
 **Place**:
-A named geographic location with a granularity: state (an Indian state/UT), region (a cultural area within a state, e.g. Kutch), or town (e.g. Bagru). Regions and towns belong to a parent state. States are the clickable units of the map.
+A named geographic location with a granularity: state (an Indian state/UT), region (a cultural area within a state, e.g. Kutch), or town (e.g. Bagru). Regions and towns belong to a parent state and carry a map position (coordinates) so their Crafts' thumbnails can be placed on the map; states are the map's structural units.
 _Avoid_: location, area
 
 **Origin**:
