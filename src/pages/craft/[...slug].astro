@@ -2,6 +2,9 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getCollection } from "astro:content";
 import type { CollectionEntry } from "astro:content";
+import CitationText from "../../components/CitationText.astro";
+import AiNotice from "../../components/AiNotice.astro";
+import ImageGallery from "../../components/ImageGallery.astro";
 
 export async function getStaticPaths() {
   const crafts = await getCollection("craft");
@@ -17,78 +20,163 @@ type Props = {
 
 const { entry } = Astro.props;
 const { data } = entry;
+
+const sourceCount = data.sources.length;
+const site = String(Astro.site ?? "https://textile-of-india.vercel.app").replace(/\/+$/, "");
+const pageUrl = `${site}/craft/${entry.slug}/`;
 ---
 
-<BaseLayout title={data.name}>
-  <article>
-    <h1>{data.name}</h1>
-    {data.alternateNames.length > 0 && (
-      <p><em>Also known as: {data.alternateNames.join(", ")}</em></p>
-    )}
-    <p><strong>Technique:</strong> {data.technique}</p>
-    <p><strong>Origin(s):</strong> {data.origins.join(", ")}</p>
-    <p>{data.summary}</p>
+<BaseLayout title={data.name} description={data.summary}>
+  <article class="craft-page">
+    <header class="craft-header">
+      <h1>{data.name}</h1>
+      {data.alternateNames.length > 0 && (
+        <p class="alt-names"><em>Also known as: {data.alternateNames.join(", ")}</em></p>
+      )}
+      <dl class="meta">
+        <dt>Technique</dt>
+        <dd>{data.technique}</dd>
+        <dt>Origin(s)</dt>
+        <dd>{data.origins.map((o) => (typeof o === "string" ? o : o.id)).join(", ")}</dd>
+      </dl>
+      <p class="summary">{data.summary}</p>
+    </header>
 
     {data.history && (
       <section>
         <h2>History</h2>
-        <p>{data.history}</p>
+        <CitationText text={data.history} sourceCount={sourceCount} />
       </section>
     )}
 
     {data.howItsMade && (
       <section>
         <h2>How it's made</h2>
-        <p>{data.howItsMade}</p>
+        <CitationText text={data.howItsMade} sourceCount={sourceCount} />
       </section>
     )}
 
     {data.motifsAndMaterials && (
       <section>
         <h2>Motifs & materials</h2>
-        <p>{data.motifsAndMaterials}</p>
+        <CitationText text={data.motifsAndMaterials} sourceCount={sourceCount} />
       </section>
     )}
 
-    {data.images.length > 0 && (
-      <section>
-        <h2>Images</h2>
-        {data.images.map((img) => (
-          <figure>
-            <img src={img.src} alt={img.alt} />
-            <figcaption>
-              {img.alt}
-              <br />
-              <small>
-                {img.credit.author} &middot; {img.credit.license}
-                &middot; <a href={img.credit.sourceUrl}>Source</a>
-              </small>
-            </figcaption>
-          </figure>
-        ))}
-      </section>
-    )}
+    {data.images.length > 0 && <ImageGallery images={data.images} />}
 
-    {data.sources.length > 0 && (
-      <section>
-        <h2>Sources</h2>
-        <ol>
-          {data.sources.map((s) => (
-            <li>
-              {s.author}, <a href={s.url}>{s.title}</a>
-              {s.year ? ` (${s.year})` : ""}
-              {s.accessed ? `, accessed ${s.accessed}` : ""}
-            </li>
-          ))}
-        </ol>
-      </section>
+    {sourceCount > 0 && (
+      <>
+        <AiNotice sourceCount={sourceCount} lastUpdated={data.generation?.date} />
+
+        <section class="sources">
+          <h2>Sources</h2>
+          <ol>
+            {data.sources.map((s, i) => (
+              <li id={`source-${i + 1}`}>
+                {s.author}, <a href={s.url}>{s.title}</a>
+                {s.year ? ` (${s.year})` : ""}
+                {s.accessed ? `, accessed ${s.accessed}` : ""}
+              </li>
+            ))}
+          </ol>
+        </section>
+      </>
     )}
   </article>
 
-  <hr />
-  <p>
-    <a href="https://github.com/zer0sand1/textile-of-india/issues/new?template=correction.yml&craft={data.name}">
-      Suggest an edit
-    </a>
-  </p>
+  <footer class="edit-footer">
+    <hr />
+    <p>
+      <a
+        href={`https://github.com/zer0sand1/textile-of-india/issues/new?template=correction.yml&craft=${encodeURIComponent(data.name)}&page=${encodeURIComponent(pageUrl)}`}
+      >
+        Suggest an edit
+      </a>
+    </p>
+  </footer>
 </BaseLayout>
+
+<style>
+  .craft-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 1rem;
+    font-family: system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+  }
+  .craft-header {
+    margin-bottom: 2rem;
+  }
+  .craft-header h1 {
+    font-size: 2rem;
+    margin: 0 0 0.25rem;
+  }
+  .alt-names {
+    color: #555;
+    margin: 0 0 1rem;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin: 0 0 1rem;
+  }
+  .meta dt {
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #555;
+  }
+  .meta dd {
+    margin: 0;
+  }
+  .summary {
+    font-size: 1.125rem;
+    color: #333;
+  }
+  section h2 {
+    font-size: 1.375rem;
+    margin: 1.5rem 0 0.75rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.25rem;
+  }
+  .sources ol {
+    padding-left: 1.5rem;
+  }
+  .sources li {
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+  }
+  .sources li:target {
+    background: #fff8e1;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+  }
+  :global(.citation) {
+    color: #1565c0;
+    text-decoration: none;
+    font-size: 0.75rem;
+    vertical-align: super;
+    line-height: 0;
+  }
+  .edit-footer {
+    max-width: 720px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    text-align: center;
+  }
+  .edit-footer a {
+    color: #1565c0;
+  }
+
+  @media (max-width: 600px) {
+    .craft-header h1 {
+      font-size: 1.5rem;
+    }
+    .summary {
+      font-size: 1rem;
+    }
+  }
+</style>

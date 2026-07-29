@@ -1,0 +1,32 @@
+---
+export interface Props {
+  sourceCount: number;
+  lastUpdated?: string;
+}
+
+const { sourceCount, lastUpdated } = Astro.props;
+---
+
+<aside class="ai-notice">
+  <p>
+    <strong>AI-generated draft.</strong>
+    This page was drafted with AI assistance based on {sourceCount} source{sourceCount !== 1 ? "s" : ""}.
+    {lastUpdated && <>Last updated: {lastUpdated}.</>}
+    Facts may be inaccurate — verify before citing.
+  </p>
+</aside>
+
+<style>
+  .ai-notice {
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin: 1.5rem 0;
+    font-size: 0.875rem;
+    color: #6d4c00;
+  }
+  .ai-notice p {
+    margin: 0;
+  }
+</style>

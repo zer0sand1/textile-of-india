@@ -1,0 +1,16 @@
+---
+export interface Props {
+  text: string;
+  sourceCount: number;
+}
+
+const { text, sourceCount } = Astro.props;
+
+const html = text.replace(/\[(\d+)\]/g, (_match: string, n: string) => {
+  const idx = parseInt(n, 10);
+  if (idx < 1 || idx > sourceCount) return `[${n}]`;
+  return `<sup><a href="#source-${idx}" class="citation">[${idx}]</a></sup>`;
+});
+---
+
+<p set:html={html} />
