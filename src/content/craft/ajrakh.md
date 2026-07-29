@@ -9,17 +9,17 @@ origins:
 summary: A resist-dye block-print textile tradition from Sindh and Kutch, known for its intricate geometric patterns and deep indigo-crimson palette.
 history: >
   Ajrakh is one of the oldest block-printing traditions in South Asia, with roots traced back to the Indus Valley
-  civilisation (c. 2500 BCE). The name likely derives from the Arabic al-ajrakh (blue), referring to the dominant
-  indigo dye. The craft was carried by the Khatri community from Sindh (now Pakistan) to Kutch, Gujarat, and
-  later to Barmer, Rajasthan, where distinct regional styles emerged.
+  civilisation (c. 2500 BCE) [1]. The name likely derives from the Arabic al-ajrakh (blue), referring to the dominant
+  indigo dye [2]. The craft was carried by the Khatri community from Sindh (now Pakistan) to Kutch, Gujarat, and
+  later to Barmer, Rajasthan, where distinct regional styles emerged [1].
 howItsMade: >
   The process involves up to 16 stages — washing, printing with resist pastes and mordants, dyeing in indigo
-  and madder baths, and repeated washing — executed over two to three weeks on handwoven cotton fabric.
-  Each colour is fixed in a specific order: black outlines first, then red, then indigo.
+  and madder baths, and repeated washing — executed over two to three weeks on handwoven cotton fabric [1].
+  Each colour is fixed in a specific order: black outlines first, then red, then indigo [2].
 motifsAndMaterials: >
-  Repeating geometric patterns based on stars, diamonds, and floral motifs arranged in symmetrical grids.
+  Repeating geometric patterns based on stars, diamonds, and floral motifs arranged in symmetrical grids [1].
   Handwoven cotton (kora) is the base fabric; natural dyes — indigo (blue), madder (red), pomegranate peel
-  (yellow) — are traditional, though some workshops now use synthetic alternatives.
+  (yellow) — are traditional, though some workshops now use synthetic alternatives [2].
 images:
   - src: /images/ajrakh-block.jpg
     alt: A wooden Ajrakh block being stamped onto fabric
@@ -27,6 +27,12 @@ images:
       author: Khatri Family Workshop
       license: CC BY-SA 4.0
       sourceUrl: https://commons.wikimedia.org/wiki/Ajrakh
+  - src: /images/ajrakh-fabric.jpg
+    alt: Finished Ajrakh fabric displaying geometric indigo patterns
+    credit:
+      author: D. B. Kumar
+      license: CC BY 4.0
+      sourceUrl: https://example.org/ajrakh-fabric
 sources:
   - title: "Ajrakh: The Art of Block Printing"
     author: Z. S. Chawla
