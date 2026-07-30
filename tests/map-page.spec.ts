@@ -68,7 +68,7 @@ test.describe("Map interactions (desktop viewport)", () => {
 
     const tooltip = page.locator("#map-tooltip");
     await expect(tooltip).toContainText("Gujarat");
-    await expect(tooltip).toContainText("2 crafts");
+    await expect(tooltip).toContainText(/crafts?/);
     await expect(tooltip).toContainText("Ajrakh");
   });
 

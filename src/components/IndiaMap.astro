@@ -88,6 +88,11 @@ const stateCraftsJson = JSON.stringify(craftsByState);
 ---
 
 <div class="map-container" data-state-crafts={stateCraftsJson}>
+  <p class="map-hint">
+    Hover a state or craft thumbnail for a tooltip. Click a state for its craft list.
+    Try Gujarat (Ajrakh / Bandhani / Patola), Uttar Pradesh (Chikankari / Banarasi),
+    or Kutch for the multi-craft slideshow.
+  </p>
   <svg
     viewBox={mapData.viewBox.join(" ")}
     xmlns="http://www.w3.org/2000/svg"
@@ -101,6 +106,7 @@ const stateCraftsJson = JSON.stringify(craftsByState);
         class="state"
         data-state={state.slug}
         data-state-name={state.name}
+        title={state.name}
       />
     ))}
     {clusters.map((cluster) => {
@@ -116,6 +122,7 @@ const stateCraftsJson = JSON.stringify(craftsByState);
           data-place={cluster.placeSlug}
           data-crafts={craftsJson}
           data-current="0"
+          title={`${first.name} — ${first.summary}`}
           set:html={imageHtml}
         />
       );
@@ -144,12 +151,20 @@ const stateCraftsJson = JSON.stringify(craftsByState);
     max-width: 900px;
     margin: 0 auto;
     position: relative;
+    overflow: visible;
+  }
+
+  .map-hint {
+    margin: 0 0 0.75rem;
+    font-size: 0.9rem;
+    color: #475569;
   }
 
   .map-svg {
     width: 100%;
     height: auto;
     display: block;
+    overflow: visible;
   }
 
   .state {
@@ -183,16 +198,19 @@ const stateCraftsJson = JSON.stringify(craftsByState);
 
   .map-tooltip {
     position: absolute;
-    z-index: 20;
+    z-index: 50;
     pointer-events: none;
-    background: #1e293b;
+    background: #0f172a;
     color: #f8fafc;
-    padding: 0.5rem 0.75rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    max-width: 240px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    transform: translate(-50%, -120%);
+    padding: 0.65rem 0.9rem;
+    border-radius: 6px;
+    border: 1px solid #94a3b8;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    max-width: 280px;
+    min-width: 140px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    transform: translate(-50%, calc(-100% - 12px));
   }
 
   .map-tooltip.hidden {
@@ -200,13 +218,14 @@ const stateCraftsJson = JSON.stringify(craftsByState);
   }
 
   .tt-title {
-    font-weight: 600;
-    margin-bottom: 0.15rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    font-size: 1rem;
   }
 
   .tt-body {
-    opacity: 0.9;
-    line-height: 1.35;
+    opacity: 0.95;
+    line-height: 1.4;
   }
 
   .side-panel {
@@ -310,10 +329,11 @@ const stateCraftsJson = JSON.stringify(craftsByState);
   type StateCraftsMap = Record<string, CraftThumbData[]>;
 
   const SLIDESHOW_MS = 800;
-  const DESKTOP_MQ = "(hover: hover) and (pointer: fine) and (min-width: 768px)";
 
   const container = document.querySelector(".map-container") as HTMLElement | null;
-  if (container && window.matchMedia(DESKTOP_MQ).matches) {
+  // Always wire interactions in the browser — the old (hover)/(pointer:fine) gate
+  // silently disabled tooltips on many Windows / touch-laptop / embedded browsers.
+  if (container) {
     const tooltip = document.getElementById("map-tooltip") as HTMLElement;
     const ttTitle = tooltip.querySelector(".tt-title") as HTMLElement;
     const ttBody = tooltip.querySelector(".tt-body") as HTMLElement;
