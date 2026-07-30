@@ -1,51 +1,93 @@
 ---
 import { getCollection } from "astro:content";
-import { projectPoint, mapData } from "../lib/map";
+import { projectPoint, mapData, placeStateSlug } from "../lib/map";
+import type { CraftThumbData, PlaceCluster, StateCraftEntry } from "../lib/map";
 
 const crafts = await getCollection("craft");
 const places = await getCollection("place");
 
 const placeMap = new Map(places.map((p) => [p.slug, p.data]));
 
-interface Thumbnail {
-  x: number;
-  y: number;
-  craftSlug: string;
-  craftName: string;
-  imageSrc: string;
-  imageAlt: string;
-}
-
-const thumbnails: Thumbnail[] = crafts.flatMap((craft) => {
-  const firstImage = craft.data.images[0];
-  if (!firstImage) return [];
-
-  return craft.data.origins.map((originRef) => {
-    const originSlug = typeof originRef === "string" ? originRef : (originRef as { id: string }).id;
-    const place = placeMap.get(originSlug);
-    if (!place) return null;
-    const { x, y } = projectPoint(
-      place.coordinates.longitude,
-      place.coordinates.latitude,
-    );
-    return {
-      x,
-      y,
-      craftSlug: craft.slug,
-      craftName: craft.data.name,
-      imageSrc: firstImage.src,
-      imageAlt: firstImage.alt,
-    };
-  }).filter((t): t is Thumbnail => t !== null);
-});
-
 const THUMB_SIZE = 3.5;
 const HALF = THUMB_SIZE / 2;
 
+function originSlug(originRef: string | { id: string }): string {
+  return typeof originRef === "string" ? originRef : originRef.id;
+}
 
+/** One cluster per Place that hosts at least one craft with an image. */
+const clusterMap = new Map<string, PlaceCluster>();
+
+for (const craft of crafts) {
+  const firstImage = craft.data.images[0];
+  if (!firstImage) continue;
+
+  const thumb: CraftThumbData = {
+    slug: craft.slug,
+    name: craft.data.name,
+    summary: craft.data.summary,
+    imageSrc: firstImage.src,
+    imageAlt: firstImage.alt,
+  };
+
+  for (const originRef of craft.data.origins) {
+    const slug = originSlug(originRef as string | { id: string });
+    const place = placeMap.get(slug);
+    if (!place) continue;
+
+    const existing = clusterMap.get(slug);
+    if (existing) {
+      if (!existing.crafts.some((c) => c.slug === thumb.slug)) {
+        existing.crafts.push(thumb);
+      }
+    } else {
+      const { x, y } = projectPoint(
+        place.coordinates.longitude,
+        place.coordinates.latitude,
+      );
+      clusterMap.set(slug, { placeSlug: slug, x, y, crafts: [thumb] });
+    }
+  }
+}
+
+const clusters = Array.from(clusterMap.values());
+
+/** Crafts indexed by Indian state/UT slug (via Place.parentState). */
+const craftsByState: Record<string, StateCraftEntry[]> = {};
+
+for (const craft of crafts) {
+  const firstImage = craft.data.images[0];
+  if (!firstImage) continue;
+
+  const entry: StateCraftEntry = {
+    slug: craft.slug,
+    name: craft.data.name,
+    summary: craft.data.summary,
+    imageSrc: firstImage.src,
+    imageAlt: firstImage.alt,
+  };
+
+  const stateSlugs = new Set<string>();
+  for (const originRef of craft.data.origins) {
+    const slug = originSlug(originRef as string | { id: string });
+    const place = placeMap.get(slug);
+    if (!place) continue;
+    const state = placeStateSlug({ slug, ...place });
+    if (state) stateSlugs.add(state);
+  }
+
+  for (const state of stateSlugs) {
+    const list = craftsByState[state] ?? (craftsByState[state] = []);
+    if (!list.some((c) => c.slug === entry.slug)) {
+      list.push(entry);
+    }
+  }
+}
+
+const stateCraftsJson = JSON.stringify(craftsByState);
 ---
 
-<div class="map-container">
+<div class="map-container" data-state-crafts={stateCraftsJson}>
   <svg
     viewBox={mapData.viewBox.join(" ")}
     xmlns="http://www.w3.org/2000/svg"
@@ -58,15 +100,43 @@ const HALF = THUMB_SIZE / 2;
         d={state.path}
         class="state"
         data-state={state.slug}
+        data-state-name={state.name}
       />
     ))}
-    {thumbnails.map((t) => {
-      const x = t.x - HALF;
-      const y = t.y - HALF;
-      const imageHtml = `<image href="${t.imageSrc}" x="${x}" y="${y}" width="${THUMB_SIZE}" height="${THUMB_SIZE}" preserveAspectRatio="xMidYMid slice" class="craft-thumb" loading="lazy" />`;
-      return <a href={`/craft/${t.craftSlug}/`} set:html={imageHtml} />;
+    {clusters.map((cluster) => {
+      const first = cluster.crafts[0];
+      const x = cluster.x - HALF;
+      const y = cluster.y - HALF;
+      const craftsJson = JSON.stringify(cluster.crafts);
+      const imageHtml = `<image href="${first.imageSrc}" x="${x}" y="${y}" width="${THUMB_SIZE}" height="${THUMB_SIZE}" preserveAspectRatio="xMidYMid slice" class="craft-thumb" loading="lazy" />`;
+      return (
+        <a
+          href={`/craft/${first.slug}/`}
+          class="thumb-cluster"
+          data-place={cluster.placeSlug}
+          data-crafts={craftsJson}
+          data-current="0"
+          set:html={imageHtml}
+        />
+      );
     })}
   </svg>
+
+  <div id="map-tooltip" class="map-tooltip hidden" role="tooltip">
+    <div class="tt-title"></div>
+    <div class="tt-body"></div>
+  </div>
+
+  <aside id="side-panel" class="side-panel" aria-label="State crafts panel">
+    <div class="sp-header">
+      <h2 class="sp-title"></h2>
+      <button type="button" id="side-panel-close" aria-label="Close panel">
+        ×
+      </button>
+    </div>
+    <div class="sp-body"></div>
+    <a class="sp-state-link" href="#">View full state page</a>
+  </aside>
 </div>
 
 <style>
@@ -88,20 +158,369 @@ const HALF = THUMB_SIZE / 2;
     stroke-width: 0.03;
     stroke-linejoin: round;
     transition: fill 0.15s ease;
+    cursor: pointer;
   }
 
-  .state:hover {
+  .state:hover,
+  .state.state-hover {
     fill: #cbd5e1;
   }
 
-  .craft-thumb {
+  .thumb-cluster {
     cursor: pointer;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-    transition: transform 0.15s ease;
   }
 
-  .craft-thumb:hover {
-    transform: scale(1.15);
+  .craft-thumb {
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: filter 0.15s ease;
+  }
+
+  .thumb-cluster:hover .craft-thumb {
+    /* Avoid transform:scale — it changes SVG hit-testing and drops hover mid-slideshow. */
+    filter: brightness(1.08);
+  }
+
+  .map-tooltip {
+    position: absolute;
+    z-index: 20;
+    pointer-events: none;
+    background: #1e293b;
+    color: #f8fafc;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    max-width: 240px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transform: translate(-50%, -120%);
+  }
+
+  .map-tooltip.hidden {
+    display: none;
+  }
+
+  .tt-title {
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+  }
+
+  .tt-body {
+    opacity: 0.9;
+    line-height: 1.35;
+  }
+
+  .side-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: min(320px, 90%);
+    height: 100%;
+    background: #fff;
+    border-left: 1px solid #cbd5e1;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+    z-index: 30;
+    overflow-y: auto;
+  }
+
+  .side-panel.side-panel-open {
+    transform: translateX(0);
+  }
+
+  .sp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .sp-title {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+
+  #side-panel-close {
+    border: none;
+    background: transparent;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #475569;
+  }
+
+  .sp-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  :global(.sp-card) {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  :global(.sp-card img) {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  :global(.sp-card-name) {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  :global(.sp-card-summary) {
+    font-size: 0.8rem;
+    color: #475569;
+    margin-top: 0.15rem;
+  }
+
+  :global(.sp-empty) {
+    color: #64748b;
+    font-size: 0.9rem;
+  }
+
+  .sp-state-link {
+    font-size: 0.9rem;
+    color: #1d4ed8;
   }
 </style>
+
+<script>
+  interface CraftThumbData {
+    slug: string;
+    name: string;
+    summary: string;
+    imageSrc: string;
+    imageAlt: string;
+  }
+
+  type StateCraftsMap = Record<string, CraftThumbData[]>;
+
+  const SLIDESHOW_MS = 800;
+  const DESKTOP_MQ = "(hover: hover) and (pointer: fine) and (min-width: 768px)";
+
+  const container = document.querySelector(".map-container") as HTMLElement | null;
+  if (container && window.matchMedia(DESKTOP_MQ).matches) {
+    const tooltip = document.getElementById("map-tooltip") as HTMLElement;
+    const ttTitle = tooltip.querySelector(".tt-title") as HTMLElement;
+    const ttBody = tooltip.querySelector(".tt-body") as HTMLElement;
+    const sidePanel = document.getElementById("side-panel") as HTMLElement;
+    const spTitle = sidePanel.querySelector(".sp-title") as HTMLElement;
+    const spBody = sidePanel.querySelector(".sp-body") as HTMLElement;
+    const spStateLink = sidePanel.querySelector(".sp-state-link") as HTMLAnchorElement;
+    const spClose = document.getElementById("side-panel-close") as HTMLButtonElement;
+    const svg = container.querySelector(".map-svg") as SVGSVGElement;
+
+    const craftsByState: StateCraftsMap = JSON.parse(
+      container.dataset.stateCrafts || "{}",
+    );
+
+    let slideshowTimer: number | null = null;
+    let hoveredState: SVGPathElement | null = null;
+
+    function showTooltip(title: string, body: string, clientX: number, clientY: number) {
+      ttTitle.textContent = title;
+      ttBody.textContent = body;
+      tooltip.classList.remove("hidden");
+      positionTooltip(clientX, clientY);
+    }
+
+    function hideTooltip() {
+      tooltip.classList.add("hidden");
+    }
+
+    function positionTooltip(clientX: number, clientY: number) {
+      const rect = container!.getBoundingClientRect();
+      tooltip.style.left = `${clientX - rect.left}px`;
+      tooltip.style.top = `${clientY - rect.top}px`;
+    }
+
+    function parseCrafts(el: HTMLElement): CraftThumbData[] {
+      try {
+        return JSON.parse(el.getAttribute("data-crafts") || "[]");
+      } catch {
+        return [];
+      }
+    }
+
+    function stopSlideshow() {
+      if (slideshowTimer !== null) {
+        window.clearInterval(slideshowTimer);
+        slideshowTimer = null;
+      }
+    }
+
+    function setClusterCraft(cluster: HTMLAnchorElement, index: number) {
+      const crafts = parseCrafts(cluster);
+      if (crafts.length === 0) return;
+      const i = ((index % crafts.length) + crafts.length) % crafts.length;
+      const craft = crafts[i];
+      cluster.dataset.current = String(i);
+      cluster.setAttribute("href", `/craft/${craft.slug}/`);
+      const image = cluster.querySelector("image.craft-thumb") as SVGImageElement | null;
+      if (image) {
+        image.setAttribute("href", craft.imageSrc);
+        image.setAttributeNS("http://www.w3.org/1999/xlink", "href", craft.imageSrc);
+      }
+      return craft;
+    }
+
+    function advanceCluster(cluster: HTMLAnchorElement) {
+      const current = Number(cluster.dataset.current || "0");
+      const craft = setClusterCraft(cluster, current + 1);
+      if (craft && !tooltip.classList.contains("hidden")) {
+        ttTitle.textContent = craft.name;
+        ttBody.textContent = craft.summary;
+      }
+    }
+
+    function startSlideshow(cluster: HTMLAnchorElement) {
+      stopSlideshow();
+      if (parseCrafts(cluster).length < 2) return;
+
+      slideshowTimer = window.setInterval(() => advanceCluster(cluster), SLIDESHOW_MS);
+    }
+
+    function openSidePanel(stateSlug: string, stateName: string) {
+      const list = craftsByState[stateSlug] || [];
+      spTitle.textContent = stateName;
+      spStateLink.href = `/state/${stateSlug}/`;
+      spBody.replaceChildren();
+
+      if (list.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "sp-empty";
+        empty.textContent = "No crafts recorded";
+        spBody.appendChild(empty);
+      } else {
+        for (const craft of list) {
+          const card = document.createElement("a");
+          card.className = "sp-card";
+          card.href = `/craft/${craft.slug}/`;
+
+          const img = document.createElement("img");
+          img.src = craft.imageSrc;
+          img.alt = craft.imageAlt;
+
+          const text = document.createElement("div");
+          const name = document.createElement("div");
+          name.className = "sp-card-name";
+          name.textContent = craft.name;
+          const summary = document.createElement("div");
+          summary.className = "sp-card-summary";
+          summary.textContent = craft.summary;
+          text.append(name, summary);
+
+          card.append(img, text);
+          spBody.appendChild(card);
+        }
+      }
+
+      sidePanel.classList.add("side-panel-open");
+    }
+
+    function closeSidePanel() {
+      sidePanel.classList.remove("side-panel-open");
+    }
+
+    function clearStateHover() {
+      if (hoveredState) {
+        hoveredState.classList.remove("state-hover");
+        hoveredState = null;
+      }
+    }
+
+    svg.querySelectorAll<SVGPathElement>("path.state").forEach((path) => {
+      path.addEventListener("mouseenter", (e) => {
+        clearStateHover();
+        path.classList.add("state-hover");
+        hoveredState = path;
+
+        const slug = path.dataset.state || "";
+        const name = path.dataset.stateName || slug;
+        const list = craftsByState[slug] || [];
+
+        let body: string;
+        if (list.length === 0) {
+          body = "No crafts yet";
+        } else {
+          const sample = list
+            .slice(0, 3)
+            .map((c) => c.name)
+            .join(", ");
+          const countLabel = list.length === 1 ? "1 craft" : `${list.length} crafts`;
+          body = `${countLabel}: ${sample}`;
+        }
+
+        showTooltip(name, body, e.clientX, e.clientY);
+      });
+
+      path.addEventListener("mousemove", (e) => {
+        if (!tooltip.classList.contains("hidden")) {
+          positionTooltip(e.clientX, e.clientY);
+        }
+      });
+
+      path.addEventListener("mouseleave", () => {
+        if (hoveredState === path) {
+          path.classList.remove("state-hover");
+          hoveredState = null;
+        }
+        hideTooltip();
+      });
+
+      path.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const slug = path.dataset.state || "";
+        const name = path.dataset.stateName || slug;
+        openSidePanel(slug, name);
+      });
+    });
+
+    container.querySelectorAll<HTMLAnchorElement>("a.thumb-cluster").forEach((cluster) => {
+      cluster.addEventListener("mouseenter", (e) => {
+        clearStateHover();
+        hideTooltip();
+
+        const crafts = parseCrafts(cluster);
+        const current = Number(cluster.dataset.current || "0");
+        const craft = crafts[current] || crafts[0];
+        if (craft) {
+          showTooltip(craft.name, craft.summary, e.clientX, e.clientY);
+        }
+        startSlideshow(cluster);
+      });
+
+      cluster.addEventListener("mousemove", (e) => {
+        if (!tooltip.classList.contains("hidden")) {
+          positionTooltip(e.clientX, e.clientY);
+        }
+      });
+
+      cluster.addEventListener("mouseleave", () => {
+        stopSlideshow();
+        hideTooltip();
+      });
+    });
+
+    spClose.addEventListener("click", () => closeSidePanel());
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeSidePanel();
+    });
+  }
+</script>
