@@ -1,0 +1,107 @@
+---
+import { getCollection } from "astro:content";
+import { projectPoint, mapData } from "../lib/map";
+
+const crafts = await getCollection("craft");
+const places = await getCollection("place");
+
+const placeMap = new Map(places.map((p) => [p.slug, p.data]));
+
+interface Thumbnail {
+  x: number;
+  y: number;
+  craftSlug: string;
+  craftName: string;
+  imageSrc: string;
+  imageAlt: string;
+}
+
+const thumbnails: Thumbnail[] = crafts.flatMap((craft) => {
+  const firstImage = craft.data.images[0];
+  if (!firstImage) return [];
+
+  return craft.data.origins.map((originRef) => {
+    const originSlug = typeof originRef === "string" ? originRef : (originRef as { id: string }).id;
+    const place = placeMap.get(originSlug);
+    if (!place) return null;
+    const { x, y } = projectPoint(
+      place.coordinates.longitude,
+      place.coordinates.latitude,
+    );
+    return {
+      x,
+      y,
+      craftSlug: craft.slug,
+      craftName: craft.data.name,
+      imageSrc: firstImage.src,
+      imageAlt: firstImage.alt,
+    };
+  }).filter((t): t is Thumbnail => t !== null);
+});
+
+const THUMB_SIZE = 3.5;
+const HALF = THUMB_SIZE / 2;
+
+
+---
+
+<div class="map-container">
+  <svg
+    viewBox={mapData.viewBox.join(" ")}
+    xmlns="http://www.w3.org/2000/svg"
+    class="map-svg"
+    role="img"
+    aria-label="Map of India showing textile craft origins"
+  >
+    {mapData.states.map((state) => (
+      <path
+        d={state.path}
+        class="state"
+        data-state={state.slug}
+      />
+    ))}
+    {thumbnails.map((t) => {
+      const x = t.x - HALF;
+      const y = t.y - HALF;
+      const imageHtml = `<image href="${t.imageSrc}" x="${x}" y="${y}" width="${THUMB_SIZE}" height="${THUMB_SIZE}" preserveAspectRatio="xMidYMid slice" class="craft-thumb" loading="lazy" />`;
+      return <a href={`/craft/${t.craftSlug}/`} set:html={imageHtml} />;
+    })}
+  </svg>
+</div>
+
+<style>
+  .map-container {
+    max-width: 900px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .map-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .state {
+    fill: #eaeef2;
+    stroke: #94a3b8;
+    stroke-width: 0.03;
+    stroke-linejoin: round;
+    transition: fill 0.15s ease;
+  }
+
+  .state:hover {
+    fill: #cbd5e1;
+  }
+
+  .craft-thumb {
+    cursor: pointer;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform 0.15s ease;
+  }
+
+  .craft-thumb:hover {
+    transform: scale(1.15);
+  }
+</style>

@@ -1,29 +1,56 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import IndiaMap from "../components/IndiaMap.astro";
 import { getCollection } from "astro:content";
 
 const crafts = await getCollection("craft");
-const places = await getCollection("place");
 ---
 
 <BaseLayout title="Tana Bana — Textiles of India">
-  <h1>Tana Bana — Textiles of India</h1>
-  <p>A curated reference on India's textile traditions.</p>
+  <div class="home">
+    <header class="hero">
+      <h1>Tana Bana — Textiles of India</h1>
+      <p class="subtitle">A curated reference on India's textile traditions.</p>
+    </header>
 
-  <h2>Crafts</h2>
-  <ul>
-    {
-      crafts.map((c) => (
-        <li>
-          <a href={`/craft/${c.slug}/`}>{c.data.name}</a>
-          &mdash; {c.data.summary}
-        </li>
-      ))
-    }
-  </ul>
+    <IndiaMap />
 
-  <h2>Places</h2>
-  <ul>
-    {places.map((p) => <li>{p.data.name} ({p.data.granularity})</li>)}
-  </ul>
+    <section class="craft-list">
+      <h2>Crafts</h2>
+      <ul>
+        {crafts.map((c) => (
+          <li>
+            <a href={`/craft/${c.slug}/`}>{c.data.name}</a>
+            &mdash; {c.data.summary}
+          </li>
+        ))}
+      </ul>
+    </section>
+  </div>
 </BaseLayout>
+
+<style>
+  .home {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
+
+  .hero {
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero h1 {
+    margin-bottom: 0.25rem;
+  }
+
+  .subtitle {
+    color: #555;
+    font-style: italic;
+  }
+
+  .craft-list {
+    margin-top: 2rem;
+  }
+</style>
